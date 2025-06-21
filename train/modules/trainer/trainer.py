@@ -149,7 +149,7 @@ class EagleTrainer(Trainer):
                 target_probs = nn.Softmax(dim=2)(target_head).detach()
 
             pred_head = self.head(predicted_hidden_states)
-            pred_log_probs = nn.LogSoftmax(dim=2)(pred_head).detach()
+            pred_log_probs = nn.LogSoftmax(dim=2)(pred_head)
             loss_class = target_probs * pred_log_probs
             loss_class = -torch.sum(torch.sum(loss_mask * loss_class, 2)) / (
                 loss_mask.sum() + 1e-5

@@ -28,7 +28,7 @@ class LlamaForCausalLMEagle(LlamaModel):
 
         # This projection layer maps the concatenated [token_emb; full_hidden] (of size 2*hidden_size)
         # down to hidden_size.
-        self.fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=True)
+        self.fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=False)
 
     def load_embedding_weights(self, weights):
         self.embed_tokens.weight = nn.Parameter(weights)

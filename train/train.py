@@ -22,7 +22,7 @@ from modules.trainer.trainer import EagleTrainer
 wandb.init(project="BaldEagle")
 wandb_run_name = wandb.run.name
 
-path = "models/llama-8b/"
+path = "../saiga/models/SAINEMO-reMIX"
 
 # -------------------------------- Load original Llama weights --------------------------------
 
@@ -49,17 +49,20 @@ model_args = LlamaConfig(
     vocab_size=vocab_size,
     hidden_size=hidden_dim,
     intermediate_size=14336,
+    head_dim=128,
     num_hidden_layers=1,
-    bos_token_id=128000,
-    eos_token_id=[128001, 128008, 128009],
+    bos_token_id=1,
+    eos_token_id=2,
     num_key_value_heads=8,
     num_attention_heads=32,
     tie_word_embeddings=False,
+    max_position_embeddings=16384,
 )
 
 draft_model = LlamaForCausalLMEagle(model_args)
 draft_model.load_embedding_weights(tensor)
 draft_model.to("cuda:0")
+draft_model = draft_model.to(torch.bfloat16)
 draft_model.embed_tokens.weight.requires_grad = False
 
 # Load head
@@ -78,17 +81,11 @@ head.eval()
 
 # -------------------------------- Load data --------------------------------
 
-sharegpt_datapaths = list_local_files("/mnt/ssd4tb/sharegpt_grouped_5k/")
-ultra_chat_datapaths = list_local_files("/mnt/ssd4tb/ultrachat_0_199999_mufp16/")
-
-combined_data_paths = (
-    sharegpt_datapaths[: int(len(sharegpt_datapaths) * 0.95)] + ultra_chat_datapaths
-)
-random.Random(42).shuffle(combined_data_paths)
-eval_data_paths = sharegpt_datapaths[int(len(sharegpt_datapaths) * 0.95) :][:100]
+train_data_paths = list_local_files("../saiga/vllm_train_eagle")
+eval_data_paths = list_local_files("../saiga/vllm_val_eagle")
 
 eagle_train_dataset = EagleLocalDataset(
-    combined_data_paths, transform=AddUniformNoise(std=0.5)
+    train_data_paths, transform=AddUniformNoise(std=0.5)
 )
 eagle_test_dataset = EagleLocalDataset(eval_data_paths)
 
@@ -97,11 +94,11 @@ eagle_collator = DataCollatorWithPadding()
 # -------------------------------- Train --------------------------------
 
 training_args = TrainingArguments(
-    output_dir=f"./hf_trainer_output_dir/{wandb_run_name}/",
-    num_train_epochs=10,
-    gradient_accumulation_steps=16,
-    per_device_train_batch_size=1,
-    per_device_eval_batch_size=1,
+    output_dir=f"../saiga/models/{wandb_run_name}/",
+    num_train_epochs=20,
+    gradient_accumulation_steps=4,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
     remove_unused_columns=False,
     bf16=True,
     fp16=False,
@@ -112,13 +109,13 @@ training_args = TrainingArguments(
     max_grad_norm=0.5,  # 1
     adam_beta1=0.9,  # 0.9
     adam_beta2=0.95,  # 0.999
-    weight_decay=1e-2,
+    weight_decay=0.01,
     eval_strategy="steps",
-    logging_steps=32,
-    eval_steps=64,
+    logging_steps=16,
+    eval_steps=128,
     save_strategy="steps",
-    save_steps=0.1,  # saves every 10% of training
-    save_total_limit=3,
+    save_steps=128,
+    save_total_limit=1,
 )
 
 trainer = EagleTrainer(
