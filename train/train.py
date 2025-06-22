@@ -111,10 +111,10 @@ training_args = TrainingArguments(
     adam_beta2=0.95,  # 0.999
     weight_decay=0.01,
     eval_strategy="steps",
-    logging_steps=16,
-    eval_steps=128,
+    logging_steps=32,
+    eval_steps=512,
     save_strategy="steps",
-    save_steps=128,
+    save_steps=512,
     save_total_limit=1,
 )
 
